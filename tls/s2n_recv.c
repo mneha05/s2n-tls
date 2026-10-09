@@ -341,5 +341,17 @@ uint32_t s2n_peek_buffered(struct s2n_connection *conn)
     if (conn == NULL) {
         return 0;
     }
-    return s2n_stuffer_data_available(&conn->buffer_in);
+
+    uint32_t buffered = s2n_stuffer_data_available(&conn->buffer_in);
+
+    /* If the current record is still encrypted, header_in and in contain
+     * record bytes that have already been removed from buffer_in. Include them
+     * so callers can observe every unprocessed byte currently held by s2n-tls.
+     */
+    if (conn->in_status == ENCRYPTED) {
+        buffered += s2n_stuffer_data_available(&conn->header_in);
+        buffered += s2n_stuffer_data_available(&conn->in);
+    }
+
+    return buffered;
 }
