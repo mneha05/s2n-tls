@@ -304,6 +304,11 @@ int main(int argc, char **argv)
             EXPECT_FAILURE_WITH_ERRNO(s2n_recv(server, buffer, sizeof(buffer), &blocked),
                     S2N_ERR_IO_BLOCKED);
             expected_count++;
+            /* Every byte already read from the wire is still buffered as part
+             * of the incomplete TLS record. None is application-readable yet.
+             */
+            EXPECT_EQUAL(s2n_peek_buffered(server), i);
+            EXPECT_EQUAL(s2n_peek(server), 0);
             /* If the first call returns any data, then a second call is made.
              * The second call blocks. */
             if (i != 0) {
@@ -315,6 +320,8 @@ int main(int argc, char **argv)
 
             EXPECT_EQUAL(s2n_recv(server, buffer, sizeof(buffer), &blocked), sizeof(test_data));
             EXPECT_BYTEARRAY_EQUAL(buffer, test_data, sizeof(test_data));
+            EXPECT_EQUAL(s2n_peek_buffered(server), 0);
+            EXPECT_EQUAL(s2n_peek(server), 0);
             expected_count++;
             EXPECT_EQUAL(counter.count, expected_count);
         }
