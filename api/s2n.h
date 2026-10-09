@@ -1994,18 +1994,18 @@ S2N_API extern int s2n_connection_set_recv_buffering(struct s2n_connection *conn
  * ```
  * In case 1, we received a record fragment. Records can only be decrypted
  * once the full record is available. So "current record" just stores the record
- * fragment (ciphertext). There are currently no APIs to determine if there
- * is a record fragment stored. https://github.com/aws/s2n-tls/issues/5863. `s2n_peek_buffered`
- * and `s2n_peek` will both return 0 in this case.
+ * fragment (ciphertext). `s2n_peek_buffered` reports the number of ciphertext
+ * bytes buffered for that partial record, while `s2n_peek` returns 0 because
+ * no application data is ready yet.
  *
  * In case 2, we received a full record, which is decrypted and stored in current
  * record. `s2n_peek` will return the count of plaintext bytes
- * yet to be read from "current record", and `s2n_peek_buffered` will return 0
+ * yet to be read from "current record", and `s2n_peek_buffered` will return 0.
  *
  * In case 3, additional bytes (another record, complete or incomplete) were
- * also read off the wire. In this case `s2n_peek_buffered` will return the length
- * of ciphertext bytes buffered in "additional". This is the only case in which
- * `s2n_peek_buffered` will return a non-zero result.
+ * also read off the wire. `s2n_peek_buffered` reports those additional
+ * ciphertext bytes. If the current record is also still encrypted, it reports
+ * both the current record fragment and the additional buffered ciphertext.
  *
  * @param conn A pointer to the s2n_connection object
  * @returns The number of buffered encrypted bytes
