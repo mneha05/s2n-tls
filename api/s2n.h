@@ -1968,17 +1968,16 @@ S2N_API extern int s2n_connection_prefer_low_latency(struct s2n_connection *conn
 S2N_API extern int s2n_connection_set_recv_buffering(struct s2n_connection *conn, bool enabled);
 
 /**
- * Reports how many bytes of unprocessed TLS records are buffered after the current
- * record.
- * 
- * This is only useful when `s2n_connection_set_recv_buffering` is enabled, and 
- * will return 0 otherwise.
- * 
+ * Reports how many bytes of unprocessed TLS records are currently buffered by
+ * s2n-tls.
+ *
  * `s2n_peek_buffered` is not a replacement for `s2n_peek`. While `s2n_peek` reports
  * application data that is ready for the application to read with no additional
- * processing, `s2n_peek_buffered` reports raw TLS records that still need to be
- * parsed and likely decrypted. Those records may contain application data, but
- * they may also only contain TLS control messages.
+ * processing, `s2n_peek_buffered` reports raw TLS record bytes that still need to be
+ * fully received, parsed, or decrypted. Those bytes may be part of the current
+ * incomplete record or additional records read ahead by receive buffering. They
+ * may eventually contain application data, but may also contain only TLS control
+ * messages.
  * 
  * When receive buffering is enabled, it is useful to imagine that an s2n-tls
  * connection behaves as if it has two buffers, one for the "current record",
