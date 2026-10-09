@@ -837,14 +837,11 @@ impl Connection {
         unsafe { s2n_peek(self.connection.as_ptr()) as usize }
     }
 
-    /// Gets the number of additional ciphertext bytes available to be read.
+    /// Gets the number of unprocessed TLS record bytes currently buffered by s2n-tls.
     ///
-    /// <div class="warning">
-    ///
-    /// This API is _not_ intuitive, and probably doesn't do what you think
-    /// it does. You should rigorously test your assumptions about its behavior.
-    ///
-    /// </div>
+    /// This may include an incomplete current record or additional ciphertext
+    /// read ahead by receive buffering. It does not imply that application data
+    /// is ready to be returned; use [`Self::peek_len`] for decrypted application data.
     ///
     /// Corresponds to [`s2n_peek_buffered`].
     pub fn peek_buffered_len(&self) -> usize {
