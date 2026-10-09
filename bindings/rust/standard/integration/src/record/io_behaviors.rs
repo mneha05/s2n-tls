@@ -81,7 +81,7 @@ fn read_incomplete_header() {
             let result = pair.server.poll_recv(&mut [0; PAYLOAD_SIZE]);
             assert!(matches!(result, Poll::Pending));
             assert_eq!(pair.server.peek_len(), 0);
-            assert_eq!(pair.server.peek_buffered_len(), 0);
+            assert_eq!(pair.server.peek_buffered_len(), 2);
         },
     );
     io.execute();
@@ -100,7 +100,10 @@ fn read_incomplete_record() {
             let result = pair.server.poll_recv(&mut [0; PAYLOAD_SIZE]);
             assert!(matches!(result, Poll::Pending));
             assert_eq!(pair.server.peek_len(), 0);
-            assert_eq!(pair.server.peek_buffered_len(), 0);
+            assert_eq!(
+                pair.server.peek_buffered_len(),
+                ENCAPSULATED_SIZE - 1
+            );
         },
     );
     io.execute();
@@ -180,8 +183,8 @@ fn read_two_complete_records() {
     io.execute();
 }
 
-/// This test demonstrates an unfortunate behavior of `peek_buffered`, where data
-/// appears to disappear if it's a record fragment.
+/// Record fragments remain visible through `peek_buffered` after s2n-tls
+/// starts processing them as the current record.
 #[test]
 fn read_complete_record_and_fragment() {
     let io = IOScenario {
@@ -197,26 +200,31 @@ fn read_complete_record_and_fragment() {
             assert!(matches!(result, Poll::Ready(Ok(PAYLOAD_SIZE))));
             assert_eq!(pair.server.peek_len(), 0);
             assert_eq!(pair.server.peek_buffered_len(), 0);
-            // the record fragment is on the wire
+            // the record fragment is still on the wire
             assert_eq!(
                 pair.io.client_tx_stream.borrow().len(),
                 ENCAPSULATED_SIZE - 1
             );
+
+            // once s2n-tls ingests the fragment, it remains observable
+            assert!(pair.server.poll_recv(&mut [0]).is_pending());
+            assert_eq!(pair.server.peek_len(), 0);
+            assert_eq!(pair.server.peek_buffered_len(), ENCAPSULATED_SIZE - 1);
+            assert!(pair.io.client_tx_stream.borrow().is_empty());
         },
         buffered_io_assertions: |pair| {
             let mut buf = [0u8; PAYLOAD_SIZE * 2];
             let result = pair.server.poll_recv(&mut buf);
             assert!(matches!(result, Poll::Ready(Ok(PAYLOAD_SIZE))));
             assert_eq!(pair.server.peek_len(), 0);
-            // we report that there is buffered data
+            // receive buffering reads the second record fragment ahead
             assert_eq!(pair.server.peek_buffered_len(), ENCAPSULATED_SIZE - 1);
             assert!(pair.io.client_tx_stream.borrow().is_empty());
 
-            // but after the next call to poll recv it is effectively hidden because
-            // we don't surface any apis to inspect buffered record fragments
+            // processing the fragment as the current record must not hide it
             assert!(pair.server.poll_recv(&mut [0]).is_pending());
             assert_eq!(pair.server.peek_len(), 0);
-            assert_eq!(pair.server.peek_buffered_len(), 0);
+            assert_eq!(pair.server.peek_buffered_len(), ENCAPSULATED_SIZE - 1);
         },
     };
     io.execute();
